@@ -11,6 +11,10 @@ let lastUpdateTime = null;
 chrome.runtime.onInstalled.addListener(() => {
   console.log('插件已安装/更新');
   setupAlarm();
+  
+  // 测试电报内容提取功能
+  testContentExtraction();
+  
   fetchTelegraphs();
 });
 
@@ -473,54 +477,305 @@ function mergeTelegraphs(existing, newOnes) {
   // 创建一个Map来存储已读状态和其他需要保留的属性
   const propertiesMap = new Map();
   
+  // 创建一个Map来基于时间戳索引电报
+  const timeMap = new Map();
+  
+  // 创建一个内容标识Map用于查找相似内容
+  const contentKeyMap = new Map();
+  
+  // 提取电报内容的核心部分（排除时间和日期）
+  const extractContentKey = (content) => {
+    if (!content) return '';
+    
+    // 移除可能的时间和日期格式
+    let cleanContent = content.replace(/\s+/g, '');
+    
+    // 尝试处理不同格式的内容
+    
+    // 格式1: 识别时间戳开头模式 "HH:MM:SS【标题】财联社X月X日电，内容"
+    const timeStampPattern = /^\d{1,2}:\d{1,2}(:\d{1,2})?/;
+    if (timeStampPattern.test(cleanContent)) {
+      cleanContent = cleanContent.replace(timeStampPattern, '');
+    }
+    
+    // 格式2: 尝试从【】标题之后的内容开始
+    if (cleanContent.startsWith('【') && cleanContent.includes('】')) {
+      // 获取【】后面的内容
+      const titleEndIndex = cleanContent.indexOf('】') + 1;
+      if (titleEndIndex < cleanContent.length) {
+        const afterTitle = cleanContent.substring(titleEndIndex);
+        
+        // 如果【】后有"财联社X月X日电，"这样的格式，则从"电，"之后开始
+        const newsPrefix = /财联社\d+月\d+日电，/;
+        const prefixMatch = afterTitle.match(newsPrefix);
+        if (prefixMatch && prefixMatch.index !== undefined) {
+          const startIndex = prefixMatch.index + prefixMatch[0].length;
+          if (startIndex < afterTitle.length) {
+            return afterTitle.substring(startIndex);
+          }
+        }
+        
+        // 如果没有标准的新闻前缀，则直接返回【】后的全部内容
+        return afterTitle;
+      }
+    }
+    
+    // 格式3: 尝试直接找"电，"后的内容
+    const contentStart = cleanContent.indexOf('电，');
+    if (contentStart !== -1 && contentStart + 2 < cleanContent.length) {
+      return cleanContent.substring(contentStart + 2);
+    }
+    
+    // 格式4: 如果内容包含【】但不在开头，提取【】中的内容作为关键部分
+    const bracketStart = cleanContent.indexOf('【');
+    const bracketEnd = cleanContent.indexOf('】', bracketStart);
+    if (bracketStart !== -1 && bracketEnd !== -1 && bracketStart < bracketEnd) {
+      return cleanContent.substring(bracketStart + 1, bracketEnd);
+    }
+    
+    // 如果没有找到任何标准格式，返回原始内容（去除了空白字符）
+    return cleanContent;
+  };
+  
   // 先保存所有已存在电报的状态和属性
   existing.forEach(telegraph => {
     // 保存ID作为索引，以及需要保留的属性
     propertiesMap.set(telegraph.id, {
       read: telegraph.read,
-      isImportant: telegraph.isImportant,
-      savedTime: telegraph.timestamp
+      isImportant: telegraph.isImportant
     });
     
     // 将现有电报添加到map中
     telegraphMap.set(telegraph.id, telegraph);
+    
+    // 按时间戳建立索引
+    if (telegraph.originalTimeStr) {
+      if (!timeMap.has(telegraph.originalTimeStr)) {
+        timeMap.set(telegraph.originalTimeStr, []);
+      }
+      timeMap.get(telegraph.originalTimeStr).push({
+        id: telegraph.id,
+        content: telegraph.content,
+        title: telegraph.title
+      });
+    }
+    
+    // 建立内容核心部分索引，排除时间和日期
+    if (telegraph.content) {
+      const contentKey = extractContentKey(telegraph.content);
+      if (contentKey && contentKey.length >= 15) { // 确保有足够内容用于比较
+        // 使用内容前30个字符作为键
+        const shortKey = contentKey.substring(0, 30);
+        if (!contentKeyMap.has(shortKey)) {
+          contentKeyMap.set(shortKey, []);
+        }
+        contentKeyMap.get(shortKey).push({
+          id: telegraph.id,
+          time: telegraph.originalTimeStr,
+          content: telegraph.content,
+          fullKey: contentKey // 存储完整的内容键，用于进一步比较
+        });
+      }
+    }
   });
   
-  // 检查每条新电报
+  // 处理每条新电报
   newOnes.forEach(newTelegraph => {
     const id = newTelegraph.id;
-    const existingTelegraph = telegraphMap.get(id);
     
-    // 如果是新电报，直接添加
-    if (!existingTelegraph) {
+    // 1. 首先检查是否直接ID匹配
+    if (telegraphMap.has(id)) {
+      // 保留原有的已读状态和重要标记
+      if (propertiesMap.has(id)) {
+        const savedProps = propertiesMap.get(id);
+        newTelegraph.read = savedProps.read;
+        
+        if (savedProps.isImportant) {
+          newTelegraph.isImportant = true;
+        }
+      }
+      
+      // 使用新电报更新现有电报
       telegraphMap.set(id, newTelegraph);
+      console.log(`更新电报(ID匹配): ${id}, 标题: ${newTelegraph.title.substring(0, 20)}...`);
       return;
     }
     
-    // 如果存在相同ID的电报，保留原有的一些属性
-    if (propertiesMap.has(id)) {
-      const savedProps = propertiesMap.get(id);
-      newTelegraph.read = savedProps.read;
+    // 2. 检查是否存在相同时间戳的电报
+    if (newTelegraph.originalTimeStr && timeMap.has(newTelegraph.originalTimeStr)) {
+      const sameTimeList = timeMap.get(newTelegraph.originalTimeStr);
+      let matchFound = false;
       
-      // 特殊处理：如果原电报标记为重要，新电报也应该标记为重要
-      if (savedProps.isImportant) {
-        newTelegraph.isImportant = true;
+      for (const oldTelegraph of sameTimeList) {
+        // 比较内容核心部分是否相似
+        const oldContentKey = extractContentKey(oldTelegraph.content);
+        const newContentKey = extractContentKey(newTelegraph.content);
+        
+        // 如果核心内容相似，认为是同一条消息的更新
+        if (oldContentKey && newContentKey && 
+            (oldContentKey.substring(0, 15) === newContentKey.substring(0, 15))) {
+          console.log(`发现时间戳相同且核心内容匹配的电报: 新ID=${newTelegraph.id}, 旧ID=${oldTelegraph.id}`);
+          
+          // 保留原有的已读状态和重要标记
+          if (propertiesMap.has(oldTelegraph.id)) {
+            const savedProps = propertiesMap.get(oldTelegraph.id);
+            newTelegraph.read = savedProps.read;
+            
+            if (savedProps.isImportant) {
+              newTelegraph.isImportant = true;
+            }
+          }
+          
+          // 删除旧版本，添加新版本
+          telegraphMap.delete(oldTelegraph.id);
+          telegraphMap.set(newTelegraph.id, newTelegraph);
+          
+          // 记录日志
+          const oldLen = oldTelegraph.content.length;
+          const newLen = newTelegraph.content.length;
+          if (newLen > oldLen) {
+            console.log(`内容已更新: 旧(${oldLen}字) -> 新(${newLen}字)`);
+          }
+          
+          matchFound = true;
+          break;
+        }
       }
       
-      // 保留较新的时间戳
-      if (savedProps.savedTime) {
-        const oldTime = new Date(savedProps.savedTime);
-        const newTime = new Date(newTelegraph.timestamp);
-        if (oldTime > newTime) {
-          newTelegraph.timestamp = savedProps.savedTime;
+      if (matchFound) {
+        return;  // 已处理，跳过后续步骤
+      }
+    }
+    
+    // 3. 检查基于核心内容的匹配（忽略时间戳）
+    if (newTelegraph.content) {
+      const newContentKey = extractContentKey(newTelegraph.content);
+      if (newContentKey && newContentKey.length >= 15) {
+        const shortKey = newContentKey.substring(0, 30);
+        
+        // 先检查前30个字符是否有匹配
+        if (contentKeyMap.has(shortKey)) {
+          const matchList = contentKeyMap.get(shortKey);
+          
+          // 找到最近的一条匹配记录
+          let bestMatch = null;
+          let latestTime = null;
+          
+          for (const match of matchList) {
+            // 进一步比较完整的内容键，确保真的匹配
+            if (match.fullKey.substring(0, 15) === newContentKey.substring(0, 15)) {
+              if (!latestTime || (match.time && match.time > latestTime)) {
+                latestTime = match.time;
+                bestMatch = match;
+              }
+            }
+          }
+          
+          if (bestMatch) {
+            console.log(`发现不同时间戳但核心内容匹配的电报: 新ID=${newTelegraph.id}, 旧ID=${bestMatch.id}, 新时间=${newTelegraph.originalTimeStr}, 旧时间=${bestMatch.time}`);
+            
+            // 保留原有的已读状态和重要标记
+            if (propertiesMap.has(bestMatch.id)) {
+              const savedProps = propertiesMap.get(bestMatch.id);
+              newTelegraph.read = savedProps.read;
+              
+              if (savedProps.isImportant) {
+                newTelegraph.isImportant = true;
+              }
+            }
+            
+            // 删除旧版本，添加新版本
+            telegraphMap.delete(bestMatch.id);
+            telegraphMap.set(newTelegraph.id, newTelegraph);
+            
+            // 记录日志
+            const oldLen = bestMatch.content.length;
+            const newLen = newTelegraph.content.length;
+            console.log(`内容已更新: 旧(${oldLen}字) -> 新(${newLen}字)`);
+            
+            return;  // 已处理，跳过后续步骤
+          }
+        }
+        
+        // 如果没有完全匹配前30个字符，尝试匹配前15个字符
+        // 这对处理小的内容变化很有用
+        for (const [key, matchList] of contentKeyMap.entries()) {
+          if (key.substring(0, 15) === shortKey.substring(0, 15) || 
+              shortKey.substring(0, 15) === key.substring(0, 15)) {
+            
+            // 找到最近的一条匹配记录
+            let bestMatch = null;
+            let latestTime = null;
+            
+            for (const match of matchList) {
+              if (!latestTime || (match.time && match.time > latestTime)) {
+                latestTime = match.time;
+                bestMatch = match;
+              }
+            }
+            
+            if (bestMatch) {
+              console.log(`发现不同时间戳但核心内容部分匹配的电报: 新ID=${newTelegraph.id}, 旧ID=${bestMatch.id}`);
+              
+              // 保留原有的已读状态和重要标记
+              if (propertiesMap.has(bestMatch.id)) {
+                const savedProps = propertiesMap.get(bestMatch.id);
+                newTelegraph.read = savedProps.read;
+                
+                if (savedProps.isImportant) {
+                  newTelegraph.isImportant = true;
+                }
+              }
+              
+              // 删除旧版本，添加新版本
+              telegraphMap.delete(bestMatch.id);
+              telegraphMap.set(newTelegraph.id, newTelegraph);
+              
+              // 记录日志
+              const oldLen = bestMatch.content.length;
+              const newLen = newTelegraph.content.length;
+              console.log(`内容已更新: 旧(${oldLen}字) -> 新(${newLen}字)`);
+              
+              return;  // 已处理，跳过后续步骤
+            }
+          }
         }
       }
     }
     
-    // 使用新电报更新现有电报（保留了原有的一些属性）
-    telegraphMap.set(id, newTelegraph);
+    // 4. 如果没有找到匹配的电报，添加为新电报
+    telegraphMap.set(newTelegraph.id, newTelegraph);
     
-    console.log(`更新电报: ${id}, 标题: ${newTelegraph.title.substring(0, 20)}...`);
+    // 更新索引
+    if (newTelegraph.originalTimeStr) {
+      if (!timeMap.has(newTelegraph.originalTimeStr)) {
+        timeMap.set(newTelegraph.originalTimeStr, []);
+      }
+      timeMap.get(newTelegraph.originalTimeStr).push({
+        id: newTelegraph.id,
+        content: newTelegraph.content,
+        title: newTelegraph.title
+      });
+    }
+    
+    // 更新内容核心部分索引
+    if (newTelegraph.content) {
+      const contentKey = extractContentKey(newTelegraph.content);
+      if (contentKey && contentKey.length >= 15) {
+        const shortKey = contentKey.substring(0, 30);
+        if (!contentKeyMap.has(shortKey)) {
+          contentKeyMap.set(shortKey, []);
+        }
+        contentKeyMap.get(shortKey).push({
+          id: newTelegraph.id,
+          time: newTelegraph.originalTimeStr,
+          content: newTelegraph.content,
+          fullKey: contentKey
+        });
+      }
+    }
+    
+    console.log(`添加新电报: ${newTelegraph.id}, 标题: ${newTelegraph.title.substring(0, 20)}...`);
   });
   
   // 转换回数组并按时间排序
@@ -533,11 +788,11 @@ function mergeTelegraphs(existing, newOnes) {
       return timeB - timeA;
     }
     // 如果没有原始时间字符串，使用timestamp
-    return b.timestamp - a.timestamp;
+    return new Date(b.timestamp) - new Date(a.timestamp);
   });
 }
-    
-    // 发送通知
+
+// 发送通知
 function sendNotification(telegraph) {
   const options = {
         type: 'basic',
@@ -584,4 +839,41 @@ async function retryWithBackoff(fn, retries = MAX_RETRIES) {
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
+}
+
+// 测试电报内容提取函数
+function testContentExtraction() {
+  const testCases = [
+    {
+      input: "17:24:17【2月个人住房新发放贷款加权平均利率约3.1% 比上年同期下降约70个基点】财联社3月14日电，央行数据显示",
+      expected: "央行数据显示"
+    },
+    {
+      input: "17:11:48财联社3月14日电，欧盟外交人士称，欧盟特使同意延长对俄罗斯2400多名个人和实体的制裁。",
+      expected: "欧盟外交人士称，欧盟特使同意延长对俄罗斯2400多名个人和实体的制裁。"
+    },
+    {
+      input: "17:11:48财联社3月14日电，欧盟外交人士称，欧盟特使同意延长对俄罗斯2400多名个人和实体的制裁，同意将三人从制裁名单中移除。",
+      expected: "欧盟外交人士称，欧盟特使同意延长对俄罗斯2400多名个人和实体的制裁，同意将三人从制裁名单中移除。"
+    },
+    {
+      input: "今日【重要消息】某股票大涨",
+      expected: "某股票大涨"
+    }
+  ];
+  
+  console.log("=== 测试电报内容提取功能 ===");
+  
+  testCases.forEach((testCase, index) => {
+    const extracted = extractContentKey(testCase.input);
+    const success = extracted === testCase.expected;
+    
+    console.log(`测试 ${index + 1}: ${success ? '通过 ✓' : '失败 ✗'}`);
+    console.log(`输入: "${testCase.input}"`);
+    console.log(`预期: "${testCase.expected}"`);
+    console.log(`实际: "${extracted}"`);
+    console.log('---');
+  });
+  
+  console.log("=== 测试完成 ===");
 } 
