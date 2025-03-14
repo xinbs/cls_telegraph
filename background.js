@@ -105,13 +105,41 @@ async function fetchTelegraphs() {
     const html = await response.text();
     const telegraphs = parseTelegraphs(html);
     
-    if (telegraphs.length > 0) {
-      await processTelegraphs(telegraphs);
+    console.log(`解析到 ${telegraphs.length} 条电报`);
+    
+    // 过滤掉空数据或无效数据
+    const validTelegraphs = telegraphs.filter(t => {
+      if (!t || !t.id || !t.title || !t.content) {
+        console.log('过滤掉无效电报:', t);
+        return false;
+      }
+      return true;
+    });
+    
+    console.log(`有效电报: ${validTelegraphs.length} 条`);
+    
+    // 检查是否有ID重复的电报（这通常不应该发生）
+    const ids = new Set();
+    const uniqueTelegraphs = [];
+    
+    validTelegraphs.forEach(t => {
+      if (!ids.has(t.id)) {
+        ids.add(t.id);
+        uniqueTelegraphs.push(t);
+      } else {
+        console.log(`发现重复ID的电报: ${t.id}, 标题: ${t.title}`);
+      }
+    });
+    
+    if (uniqueTelegraphs.length > 0) {
+      await processTelegraphs(uniqueTelegraphs);
+    } else {
+      console.log('没有获取到有效电报，跳过处理');
     }
 
     lastUpdateTime = new Date();
     return true;
-      } catch (error) {
+  } catch (error) {
     console.error('获取电报失败:', error);
     throw error;
   }
@@ -437,36 +465,66 @@ function convertToFullTime(timeStr) {
 
 // 合并电报并去重
 function mergeTelegraphs(existing, newOnes) {
+  console.log(`合并电报: 现有${existing.length}条, 新增${newOnes.length}条`);
+  
   // 创建一个Map来存储最新的电报（按ID去重）
   const telegraphMap = new Map();
   
-  // 创建一个Map来存储已读状态
-  const readStatusMap = new Map();
+  // 创建一个Map来存储已读状态和其他需要保留的属性
+  const propertiesMap = new Map();
   
-  // 先保存所有已存在电报的已读状态
+  // 先保存所有已存在电报的状态和属性
   existing.forEach(telegraph => {
-    if (telegraph.read) {
-      readStatusMap.set(telegraph.id, true);
-    }
-  });
-  
-  // 添加新电报，同时检查并应用已读状态
-  newOnes.forEach(telegraph => {
-    // 如果这条电报之前标记为已读，保持已读状态
-    if (readStatusMap.has(telegraph.id)) {
-      telegraph.read = true;
-    }
+    // 保存ID作为索引，以及需要保留的属性
+    propertiesMap.set(telegraph.id, {
+      read: telegraph.read,
+      isImportant: telegraph.isImportant,
+      savedTime: telegraph.timestamp
+    });
+    
+    // 将现有电报添加到map中
     telegraphMap.set(telegraph.id, telegraph);
   });
   
-  // 添加旧电报（如果没有被新电报覆盖）
-  existing.forEach(telegraph => {
-    if (!telegraphMap.has(telegraph.id)) {
-      telegraphMap.set(telegraph.id, telegraph);
+  // 检查每条新电报
+  newOnes.forEach(newTelegraph => {
+    const id = newTelegraph.id;
+    const existingTelegraph = telegraphMap.get(id);
+    
+    // 如果是新电报，直接添加
+    if (!existingTelegraph) {
+      telegraphMap.set(id, newTelegraph);
+      return;
     }
+    
+    // 如果存在相同ID的电报，保留原有的一些属性
+    if (propertiesMap.has(id)) {
+      const savedProps = propertiesMap.get(id);
+      newTelegraph.read = savedProps.read;
+      
+      // 特殊处理：如果原电报标记为重要，新电报也应该标记为重要
+      if (savedProps.isImportant) {
+        newTelegraph.isImportant = true;
+      }
+      
+      // 保留较新的时间戳
+      if (savedProps.savedTime) {
+        const oldTime = new Date(savedProps.savedTime);
+        const newTime = new Date(newTelegraph.timestamp);
+        if (oldTime > newTime) {
+          newTelegraph.timestamp = savedProps.savedTime;
+        }
+      }
+    }
+    
+    // 使用新电报更新现有电报（保留了原有的一些属性）
+    telegraphMap.set(id, newTelegraph);
+    
+    console.log(`更新电报: ${id}, 标题: ${newTelegraph.title.substring(0, 20)}...`);
   });
   
   // 转换回数组并按时间排序
+  console.log(`合并后总共: ${telegraphMap.size}条电报`);
   return Array.from(telegraphMap.values()).sort((a, b) => {
     // 首先尝试比较原始时间字符串
     if (a.originalTimeStr && b.originalTimeStr) {
@@ -498,11 +556,17 @@ function generateId(str) {
   const cleanStr = str
     .replace(/\s+/g, '') // 移除所有空白字符
     .replace(/<[^>]+>/g, '') // 移除HTML标签
+    .replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '') // 只保留中文、英文和数字
     .toLowerCase(); // 转换为小写
     
+  // 如果清理后字符串长度超过100，只取前100个字符
+  const truncatedStr = cleanStr.length > 100 ? cleanStr.substring(0, 100) : cleanStr;
+  
+  console.log('用于生成ID的字符串:', truncatedStr);
+  
   let hash = 0;
-  for (let i = 0; i < cleanStr.length; i++) {
-    const char = cleanStr.charCodeAt(i);
+  for (let i = 0; i < truncatedStr.length; i++) {
+    const char = truncatedStr.charCodeAt(i);
     hash = ((hash << 5) - hash) + char;
     hash = hash & hash;
   }
