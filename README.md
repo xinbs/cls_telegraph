@@ -5,7 +5,7 @@
 ## 快速开始
 
 ### 下载安装
-- [点击下载](https://github.com/xinbs/cls_telegraph/releases/download/v1.0.0/cls_telegraph_v1.0.0.zip) 最新版本
+- [点击下载](https://github.com/xinbs/cls_telegraph/raw/main/releases/cls_telegraph_v1.0.0.zip) 最新版本
 - 下载后解压 `cls_telegraph_v1.0.0.zip`
 - 打开 Chrome 浏览器，进入扩展管理页面 (chrome://extensions/)
 - 开启右上角的"开发者模式"
