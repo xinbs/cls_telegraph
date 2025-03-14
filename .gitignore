@@ -10,6 +10,7 @@ Thumbs.db
 
 # 打包文件
 *.zip
+!releases/*.zip
 *.crx
 *.pem
 
