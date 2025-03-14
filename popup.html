@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>财联社电报实时助手</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>财联社电报实时助手</h1>
+      <div class="actions">
+        <div class="last-update">
+          <span>上次更新: </span>
+          <span id="lastUpdateTime">--</span>
+        </div>
+        <button id="refreshBtn" title="刷新数据">
+          <svg viewBox="0 0 24 24" width="16" height="16">
+            <path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+          </svg>
+        </button>
+        <button id="settingsBtn" title="设置">
+          <svg viewBox="0 0 24 24" width="16" height="16">
+            <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+    
+    <div class="filter-bar">
+      <div class="filter-options">
+        <button class="filter-btn active" data-filter="all">
+          全
+          <span class="count" id="totalCount">0</span>
+        </button>
+        <button class="filter-btn" data-filter="unread">
+          未
+          <span class="count unread" id="unreadCount">0</span>
+        </button>
+        <button class="filter-btn" data-filter="hot">
+          热
+          <span class="count hot" id="hotCount">0</span>
+        </button>
+        <button class="filter-btn" data-filter="important">
+          重
+          <span class="count important" id="importantCount">0</span>
+        </button>
+        <button class="filter-btn mark-all-read" id="markAllReadBtn">
+          已读
+        </button>
+      </div>
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="搜索...">
+        <svg viewBox="0 0 24 24" width="14" height="14">
+          <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+        </svg>
+      </div>
+    </div>
+    
+    <div class="telegraph-list" id="telegraphList">
+      <!-- 电报列表将通过JavaScript动态生成 -->
+      <div class="loading">加载中...</div>
+    </div>
+    
+    <div id="emptyState" class="empty-state" style="display: none;">
+      <svg viewBox="0 0 24 24" width="48" height="48">
+        <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8l8 5 8-5v10zm-8-7L4 6h16l-8 5z"/>
+      </svg>
+      <p>暂无电报数据</p>
+      <button id="emptyRefreshBtn">立即刷新</button>
+    </div>
+    
+    <div id="settingsPanel" class="settings-panel" style="display: none;">
+      <h2>设置</h2>
+      <div class="setting-item">
+        <label for="notificationsEnabled">启用通知</label>
+        <input type="checkbox" id="notificationsEnabled" checked>
+      </div>
+      <div class="setting-item">
+        <label for="darkModeEnabled">深色模式</label>
+        <input type="checkbox" id="darkModeEnabled" checked>
+      </div>
+      <div class="setting-item">
+        <label for="hotThreshold">热度阈值</label>
+        <input type="range" id="hotThreshold" min="1000" max="100000" value="10000">
+        <span id="hotThresholdValue">10000</span>
+      </div>
+      <div class="setting-item">
+        <label for="badgeTypeSelect">徽章显示</label>
+        <select id="badgeTypeSelect">
+          <option value="total">全部消息数</option>
+          <option value="unread">未读消息数</option>
+          <option value="important">重要消息数</option>
+          <option value="hot">热门消息数</option>
+        </select>
+      </div>
+      <div class="setting-item">
+        <label for="cacheHours">保留缓存时间（小时）</label>
+        <input type="number" id="cacheHours" min="1" max="72" value="24">
+      </div>
+      <div class="setting-actions">
+        <button id="saveSettingsBtn">保存</button>
+        <button id="cancelSettingsBtn">取消</button>
+      </div>
+    </div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html> 

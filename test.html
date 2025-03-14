@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>测试页面</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        #output { margin-top: 20px; padding: 10px; border: 1px solid #ccc; }
+        .c-de0422 { color: red; }
+    </style>
+</head>
+<body>
+    <h1>电报解析测试</h1>
+    <button onclick="testParsing()">测试解析</button>
+    <div id="output"></div>
+
+    <script src="background.js"></script>
+    <script>
+        async function testParsing() {
+            const testHtml = `
+                <div id="__next">
+                    <div class="telegraph-item">
+                        <span class="time">12:30</span>
+                        <div class="content">
+                            <span class="c-de0422">
+                                <div><strong>【重要消息】</strong>这是一条重要的测试消息<br></div>
+                            </span>
+                        </div>
+                        <div class="readCount">阅5.58W</div>
+                    </div>
+                </div>
+            `;
+
+            try {
+                const telegraphs = parseTelegraphs(testHtml);
+                document.getElementById('output').innerHTML = 
+                    '<pre>' + JSON.stringify(telegraphs, null, 2) + '</pre>';
+            } catch (error) {
+                document.getElementById('output').innerHTML = 
+                    '<pre style="color: red;">' + error.toString() + '</pre>';
+            }
+        }
+    </script>
+</body>
+</html> 
