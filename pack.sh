@@ -27,39 +27,44 @@ fi
 
 echo "所有必要文件已找到"
 
-# 设置版本号
+# 设置版本号和目录
 VERSION="1.0.0"
 PACKAGE_NAME="cls_telegraph_v${VERSION}"
+RELEASES_DIR="releases"
+
+# 创建发布目录
+echo "创建发布目录..."
+mkdir -p "$RELEASES_DIR"
 
 # 创建临时目录
 echo "创建临时目录..."
-TMP_DIR="tmp_package"
-rm -rf $TMP_DIR
-mkdir $TMP_DIR
+TMP_DIR="${RELEASES_DIR}/tmp_package"
+rm -rf "$TMP_DIR"
+mkdir "$TMP_DIR"
 
 # 复制必要文件
 echo "复制文件..."
-cp manifest.json $TMP_DIR/
-cp background.js $TMP_DIR/
-cp popup.html $TMP_DIR/
-cp popup.js $TMP_DIR/
-cp popup.css $TMP_DIR/
-cp README.md $TMP_DIR/
-cp icon16.png $TMP_DIR/
-cp icon48.png $TMP_DIR/
-cp icon128.png $TMP_DIR/
+cp manifest.json "$TMP_DIR/"
+cp background.js "$TMP_DIR/"
+cp popup.html "$TMP_DIR/"
+cp popup.js "$TMP_DIR/"
+cp popup.css "$TMP_DIR/"
+cp README.md "$TMP_DIR/"
+cp icon16.png "$TMP_DIR/"
+cp icon48.png "$TMP_DIR/"
+cp icon128.png "$TMP_DIR/"
 
 # 创建 zip 包
 echo "创建 zip 包..."
-cd $TMP_DIR
+cd "$RELEASES_DIR/tmp_package"
 zip -r "../${PACKAGE_NAME}.zip" *
-cd ..
+cd ../..
 
 # 清理临时目录
 echo "清理临时文件..."
-rm -rf $TMP_DIR
+rm -rf "$TMP_DIR"
 
-echo "打包完成：${PACKAGE_NAME}.zip"
+echo "打包完成：${RELEASES_DIR}/${PACKAGE_NAME}.zip"
 echo ""
 echo "您可以:"
 echo "1. 上传此ZIP文件到Chrome网上应用店"
