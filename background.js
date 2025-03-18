@@ -204,9 +204,16 @@ function parseTelegraphContent(html) {
       const [hours, minutes, seconds] = originalTimeStr.split(':').map(Number);
       timestamp.setHours(hours, minutes, seconds || 0);
       
-      // 如果设置后的时间比现在晚，说明是昨天的消息
+      // 如果时间是深夜(20:00以后)且当前是早上或白天(12:00之前)，则认为是昨天的消息
+      if (hours >= 20 && now.getHours() < 12) {
+        timestamp.setDate(timestamp.getDate() - 1);
+        console.log(`电报时间 ${originalTimeStr} 判定为昨天的消息`);
+      }
+      
+      // 如果设置后的时间比现在晚，说明可能是昨天的消息
       if (timestamp > now) {
         timestamp.setDate(timestamp.getDate() - 1);
+        console.log(`电报时间 ${originalTimeStr} 超过当前时间，判定为昨天的消息`);
       }
     }
 
@@ -460,7 +467,15 @@ function convertToFullTime(timeStr) {
   // 处理 "HH:mm:ss" 格式
   if (timeStr.includes(':')) {
     const [hours, minutes, seconds = 0] = timeStr.split(':').map(Number);
-    return new Date(today.getTime() + (hours * 3600 + minutes * 60 + seconds) * 1000);
+    const timeObj = new Date(today.getTime() + (hours * 3600 + minutes * 60 + seconds) * 1000);
+    
+    // 如果是深夜时间(20:00以后)且当前是早上或白天(12:00之前)，则认为是昨天的时间
+    if (hours >= 20 && now.getHours() < 12) {
+      timeObj.setDate(timeObj.getDate() - 1);
+      console.log(`将深夜时间 ${timeStr} 判定为昨天`);
+    }
+    
+    return timeObj;
   }
   
   // 如果无法解析，返回当前时间
@@ -780,16 +795,37 @@ function mergeTelegraphs(existing, newOnes) {
   
   // 转换回数组并按时间排序
   console.log(`合并后总共: ${telegraphMap.size}条电报`);
-  return Array.from(telegraphMap.values()).sort((a, b) => {
-    // 首先尝试比较原始时间字符串
-    if (a.originalTimeStr && b.originalTimeStr) {
-      const timeA = convertToFullTime(a.originalTimeStr);
-      const timeB = convertToFullTime(b.originalTimeStr);
-      return timeB - timeA;
+  const result = Array.from(telegraphMap.values()).sort((a, b) => {
+    try {
+      // 首先尝试比较ISO格式的timestamp字段
+      if (a.timestamp && b.timestamp) {
+        return new Date(b.timestamp) - new Date(a.timestamp);
+      }
+      
+      // 如果没有timestamp或出错，尝试比较原始时间字符串
+      if (a.originalTimeStr && b.originalTimeStr) {
+        const timeA = convertToFullTime(a.originalTimeStr);
+        const timeB = convertToFullTime(b.originalTimeStr);
+        
+        // 记录排序的具体值，帮助调试
+        if (a.originalTimeStr.startsWith('23:') || b.originalTimeStr.startsWith('23:')) {
+          console.log(`排序比较: ${a.originalTimeStr} vs ${b.originalTimeStr}`);
+          console.log(`转换后时间: ${timeA.toLocaleString()} vs ${timeB.toLocaleString()}`);
+          console.log(`排序结果: ${timeB - timeA > 0 ? b.originalTimeStr + '更新' : a.originalTimeStr + '更新'}`);
+        }
+        
+        return timeB - timeA;
+      }
+      
+      // 兜底方案，如果以上都失败
+      return 0;
+    } catch (e) {
+      console.error('电报排序出错:', e);
+      return 0;
     }
-    // 如果没有原始时间字符串，使用timestamp
-    return new Date(b.timestamp) - new Date(a.timestamp);
   });
+  
+  return result;
 }
 
 // 发送通知
