@@ -39,6 +39,14 @@ document.addEventListener('DOMContentLoaded', () => {
   saveSettingsBtn.addEventListener('click', saveSettings);
   cancelSettingsBtn.addEventListener('click', toggleSettingsPanel);
   
+  // 添加"已读"按钮的点击事件，将所有消息标记为已读
+  const markAllReadBtn = document.getElementById('markAllReadBtn');
+  if (markAllReadBtn) {
+    markAllReadBtn.addEventListener('click', () => {
+      markAllAsRead();
+    });
+  }
+  
   darkModeEnabled.addEventListener('change', () => {
     document.body.classList.toggle('dark-mode', darkModeEnabled.checked);
   });
@@ -475,7 +483,34 @@ document.addEventListener('DOMContentLoaded', () => {
     return item;
   }
   
-  // 标记电报为已读
+  // 标记所有电报为已读
+  async function markAllAsRead() {
+    console.log('开始标记所有电报为已读');
+    try {
+      const { telegraphs } = await chrome.storage.local.get('telegraphs');
+      
+      if (telegraphs && telegraphs.length > 0) {
+        console.log(`将${telegraphs.length}条电报全部标记为已读`);
+        
+        const updatedTelegraphs = telegraphs.map(item => {
+          return { ...item, read: true };
+        });
+        
+        await chrome.storage.local.set({ telegraphs: updatedTelegraphs });
+        console.log('所有电报已成功标记为已读并保存到存储中');
+        
+        // 更新消息计数和界面
+        await updateMessageCounts(updatedTelegraphs);
+        renderTelegraphList();
+      } else {
+        console.log('没有电报数据，无需标记');
+      }
+    } catch (error) {
+      console.error('标记所有电报为已读时出错:', error);
+    }
+  }
+  
+  // 标记电报为已读 (保留原有功能，用于单条电报标记)
   async function markAsRead(id) {
     console.log(`开始标记电报为已读: ${id}`);
     try {
