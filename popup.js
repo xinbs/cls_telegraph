@@ -528,6 +528,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         await chrome.storage.local.set({ telegraphs: updatedTelegraphs });
         console.log('电报已成功标记为已读并保存到存储中');
+        
+        // 更新消息计数，确保未读数字实时变化
+        await updateMessageCounts(updatedTelegraphs);
       } else {
         console.error('无法标记为已读：未找到电报数据');
       }
