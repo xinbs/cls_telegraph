@@ -39,6 +39,16 @@ document.addEventListener('DOMContentLoaded', () => {
   saveSettingsBtn.addEventListener('click', saveSettings);
   cancelSettingsBtn.addEventListener('click', toggleSettingsPanel);
   
+  // 添加GitHub仓库链接点击事件
+  const githubLink = document.getElementById('githubLink');
+  if (githubLink) {
+    githubLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      // 使用chrome.tabs.create打开GitHub仓库链接
+      chrome.tabs.create({ url: 'https://github.com/xinbs/cls_telegraph' });
+    });
+  }
+  
   // 添加"已读"按钮的点击事件，将所有消息标记为已读
   const markAllReadBtn = document.getElementById('markAllReadBtn');
   if (markAllReadBtn) {

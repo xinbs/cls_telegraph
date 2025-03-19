@@ -346,46 +346,48 @@ span.c-de0422 * {
   border-radius: 4px;
 }
 
-/* 设置面板 */
+/* 设置面板样式 */
 .settings-panel {
   position: absolute;
   top: 0;
   left: 0;
-  right: 0;
-  background: var(--background-color);
-  border-radius: 8px;
-  padding: 16px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  z-index: 1000;
+  width: 100%;
+  height: 100%;
+  background-color: var(--background-color);
+  z-index: 20;
+  padding: 20px;
+  overflow-y: auto;
+  transition: transform 0.3s ease;
 }
 
 .settings-panel h2 {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   color: var(--primary-color);
 }
 
 .setting-item {
   margin-bottom: 16px;
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
 }
 
 .setting-item label {
-  font-size: 14px;
+  flex: 1;
   color: var(--text-color);
-  margin-right: 12px;
 }
 
 .setting-item select {
-  padding: 6px 12px;
+  padding: 8px;
   border-radius: 4px;
-  border: 1px solid var(--border-color);
-  background: var(--background-color);
+  background-color: var(--card-background);
   color: var(--text-color);
-  font-size: 14px;
-  width: 120px;
-  cursor: pointer;
+  border: 1px solid var(--border-color);
+  width: 150px;
+  appearance: none;
+  background-image: url('data:image/svg+xml;utf8,<svg fill="gray" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>');
+  background-repeat: no-repeat;
+  background-position: right 8px center;
 }
 
 .setting-item select:hover {
@@ -395,34 +397,60 @@ span.c-de0422 * {
 .setting-item select:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+  box-shadow: 0 0 0 2px rgba(30, 136, 229, 0.3);
 }
 
 .dark-mode .setting-item select {
-  background: var(--card-background);
-  border-color: var(--border-color);
-  color: var(--text-color);
+  background-image: url('data:image/svg+xml;utf8,<svg fill="lightgray" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>');
 }
 
 .dark-mode .setting-item select:hover {
   border-color: var(--primary-color);
 }
 
+/* 设置面板中的分隔线 */
+.setting-divider {
+  height: 1px;
+  background-color: var(--border-color);
+  margin: 20px 0;
+}
+
+/* 关于部分样式 */
+.about-section {
+  margin-bottom: 20px;
+}
+
+.about-section h3 {
+  color: var(--primary-color);
+  margin-bottom: 12px;
+  font-size: 16px;
+}
+
+.about-item {
+  display: flex;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.about-item span:first-child {
+  width: 80px;
+  color: var(--text-secondary);
+}
+
+.about-item a {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+.about-item a:hover {
+  text-decoration: underline;
+}
+
 .setting-actions {
-  margin-top: 24px;
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-}
-
-.setting-actions button {
-  padding: 8px 16px;
-  border-radius: 4px;
-}
-
-#saveSettingsBtn {
-  background-color: var(--primary-color);
-  color: white;
+  margin-top: 20px;
 }
 
 /* 滚动条样式 */
