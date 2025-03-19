@@ -7,8 +7,8 @@
 ## 快速开始
 
 ### 下载安装
-- [点击下载](https://github.com/xinbs/cls_telegraph/raw/main/releases/cls_telegraph_v1.0.0.zip) 最新版本
-- 下载后解压 `cls_telegraph_v1.0.0.zip`
+- [点击下载](https://github.com/xinbs/cls_telegraph/raw/main/releases/cls_telegraph_v1.0.1.zip) 最新版本
+- 下载后解压 `cls_telegraph_v1.0.1.zip`
 - 打开 Chrome 浏览器，进入扩展管理页面 (chrome://extensions/)
 - 开启右上角的"开发者模式"
 - 点击"加载已解压的扩展程序"
@@ -69,6 +69,12 @@
 - 用户可以随时通过设置清理历史数据
 
 ## 更新日志
+
+### v1.0.1
+- 新增一键标记所有消息为已读功能
+- 优化阅读体验，滚动时未读数字实时更新
+- 修复前一天深夜电报排序靠前的问题
+- 改进电报相似度检测算法，提升去重准确率
 
 ### v1.0.0
 - 初始版本发布
