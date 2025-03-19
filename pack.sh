@@ -28,7 +28,7 @@ fi
 echo "所有必要文件已找到"
 
 # 设置版本号和目录
-VERSION="1.0.0"
+VERSION="1.0.1"
 PACKAGE_NAME="cls_telegraph_v${VERSION}"
 RELEASES_DIR="releases"
 

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "财联社电报实时助手",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "实时获取财联社电报内容，支持重要信息提醒",
   "permissions": [
     "activeTab",
